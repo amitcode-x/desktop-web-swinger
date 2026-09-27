@@ -1,0 +1,57 @@
+{
+  "name": "hanging-character",
+  "version": "1.0.0",
+  "description": "A transparent always-on-top desktop pet that hangs from a swinging web thread.",
+  "main": "main.js",
+  "author": "You",
+  "license": "MIT",
+
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3",
+    "png-to-ico": "^3.0.2"
+  },
+
+  "build": {
+    "appId": "com.amit.hangingcharacter",
+    "productName": "Amit",
+
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "assets/**/*"
+    ],
+
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+
+      "runAfterFinish": true,
+
+      "deleteAppDataOnUninstall": true,
+
+      "include": "build/installer.nsh"
+    },
+
+    "mac": {
+      "target": "dmg"
+    },
+
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}
