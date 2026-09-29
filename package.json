@@ -1,6 +1,6 @@
 {
   "name": "hanging-character",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A transparent always-on-top desktop application.",
   "main": "main.js",
   "author": {
