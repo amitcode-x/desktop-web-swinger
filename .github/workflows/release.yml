@@ -9,11 +9,6 @@ permissions:
   contents: write
 
 jobs:
-
-  # ==========================================================
-  # WINDOWS
-  # ==========================================================
-
   windows:
     name: Windows Build
     runs-on: windows-latest
@@ -34,6 +29,12 @@ jobs:
       - name: Build Windows
         run: npm run dist:win -- --publish never
 
+      - name: Show Windows build files
+        shell: pwsh
+        run: |
+          Write-Host "Windows dist files:"
+          Get-ChildItem -Path dist -Force | Select-Object Name, Length, Mode
+
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
         with:
@@ -41,10 +42,6 @@ jobs:
           path: dist/
           if-no-files-found: error
 
-
-  # ==========================================================
-  # LINUX
-  # ==========================================================
 
   linux:
     name: Linux Build
@@ -66,6 +63,12 @@ jobs:
       - name: Build Linux
         run: npm run dist:linux -- --publish never
 
+      - name: Show Linux build files
+        shell: bash
+        run: |
+          echo "Linux dist files:"
+          find dist -maxdepth 1 -type f -printf '%f\n' | sort
+
       - name: Upload Linux build
         uses: actions/upload-artifact@v4
         with:
@@ -73,10 +76,6 @@ jobs:
           path: dist/
           if-no-files-found: error
 
-
-  # ==========================================================
-  # MACOS
-  # ==========================================================
 
   macos:
     name: macOS Build
@@ -98,6 +97,12 @@ jobs:
       - name: Build macOS
         run: npm run dist:mac -- --publish never
 
+      - name: Show macOS build files
+        shell: bash
+        run: |
+          echo "macOS dist files:"
+          find dist -maxdepth 1 -type f -print | sort
+
       - name: Upload macOS build
         uses: actions/upload-artifact@v4
         with:
@@ -105,10 +110,6 @@ jobs:
           path: dist/
           if-no-files-found: error
 
-
-  # ==========================================================
-  # CREATE & PUBLISH GITHUB RELEASE
-  # ==========================================================
 
   release:
     name: Publish GitHub Release
@@ -120,18 +121,8 @@ jobs:
       - macos
 
     steps:
-
-      # ------------------------------------------------------
-      # Checkout repository
-      # ------------------------------------------------------
-
       - name: Checkout repository
         uses: actions/checkout@v4
-
-
-      # ------------------------------------------------------
-      # Download Windows artifacts
-      # ------------------------------------------------------
 
       - name: Download Windows build
         uses: actions/download-artifact@v4
@@ -139,21 +130,11 @@ jobs:
           name: windows-dist
           path: release-assets/windows
 
-
-      # ------------------------------------------------------
-      # Download Linux artifacts
-      # ------------------------------------------------------
-
       - name: Download Linux build
         uses: actions/download-artifact@v4
         with:
           name: linux-dist
           path: release-assets/linux
-
-
-      # ------------------------------------------------------
-      # Download macOS artifacts
-      # ------------------------------------------------------
 
       - name: Download macOS build
         uses: actions/download-artifact@v4
@@ -161,26 +142,70 @@ jobs:
           name: macos-dist
           path: release-assets/macos
 
-
-      # ------------------------------------------------------
-      # Show generated files
-      # ------------------------------------------------------
-
       - name: Show release files
         shell: bash
         run: |
-          echo "======================================"
-          echo "Generated release files:"
-          echo "======================================"
+          echo "=========================================="
+          echo "Release files"
+          echo "=========================================="
 
-          find release-assets \
+          echo ""
+          echo "Windows:"
+          find release-assets/windows \
+            -mindepth 1 \
+            -maxdepth 1 \
             -type f \
-            -print
+            -printf '%f\n' | sort
 
+          echo ""
+          echo "Linux:"
+          find release-assets/linux \
+            -mindepth 1 \
+            -maxdepth 1 \
+            -type f \
+            -printf '%f\n' | sort
 
-      # ------------------------------------------------------
-      # Create and publish GitHub Release
-      # ------------------------------------------------------
+          echo ""
+          echo "macOS:"
+          find release-assets/macos \
+            -mindepth 1 \
+            -maxdepth 1 \
+            -type f \
+            -printf '%f\n' | sort
+
+          echo ""
+          echo "=========================================="
+
+      - name: Prepare release assets
+        shell: bash
+        run: |
+          set -e
+
+          mkdir -p release-assets/final
+
+          find release-assets/windows \
+            -mindepth 1 \
+            -maxdepth 1 \
+            -type f \
+            -exec cp -f {} release-assets/final/ \;
+
+          find release-assets/linux \
+            -mindepth 1 \
+            -maxdepth 1 \
+            -type f \
+            -exec cp -f {} release-assets/final/ \;
+
+          find release-assets/macos \
+            -mindepth 1 \
+            -maxdepth 1 \
+            -type f \
+            -exec cp -f {} release-assets/final/ \;
+
+          echo "Final release assets:"
+          find release-assets/final \
+            -maxdepth 1 \
+            -type f \
+            -printf '%f\n' | sort
 
       - name: Publish GitHub Release
         env:
@@ -188,33 +213,57 @@ jobs:
           TAG_NAME: ${{ github.ref_name }}
         shell: bash
         run: |
-          echo "======================================"
+          set -e
+
+          echo "=========================================="
           echo "Publishing GitHub Release: $TAG_NAME"
-          echo "======================================"
+          echo "=========================================="
+
+          # Remove an old partial/failed release for the same tag.
+          # This does NOT delete the Git tag.
+          if gh release view "$TAG_NAME" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Existing release found for $TAG_NAME."
+            echo "Deleting old release before creating a clean one..."
+
+            gh release delete "$TAG_NAME" \
+              --repo "${{ github.repository }}" \
+              --yes
+          else
+            echo "No existing release found for $TAG_NAME."
+          fi
+
+          echo ""
+          echo "Final assets to upload:"
+          find release-assets/final \
+            -maxdepth 1 \
+            -type f \
+            -printf '%p\n' | sort
+
+          echo ""
+          echo "Creating GitHub Release..."
 
           mapfile -d '' ASSETS < <(
-            find release-assets \
+            find release-assets/final \
+              -mindepth 1 \
+              -maxdepth 1 \
               -type f \
               -print0
           )
 
-          echo "======================================"
-          echo "Release assets:"
-          echo "======================================"
-
-          printf '%s\n' "${ASSETS[@]}"
-
-          echo "======================================"
-          echo "Creating GitHub Release..."
-          echo "======================================"
+          if [ "${#ASSETS[@]}" -eq 0 ]; then
+            echo "ERROR: No release assets found."
+            exit 1
+          fi
 
           gh release create "$TAG_NAME" \
             "${ASSETS[@]}" \
             --repo "${{ github.repository }}" \
             --title "Amit ${TAG_NAME#v}" \
             --generate-notes \
-            --verify-tag
+            --verify-tag \
+            --latest
 
-          echo "======================================"
+          echo ""
+          echo "=========================================="
           echo "GitHub Release published successfully."
-          echo "======================================"
+          echo "=========================================="
