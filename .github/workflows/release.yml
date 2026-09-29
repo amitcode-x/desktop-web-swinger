@@ -121,8 +121,13 @@ jobs:
 
     steps:
 
+      # ------------------------------------------------------
+      # Checkout repository
+      # ------------------------------------------------------
+
       - name: Checkout repository
         uses: actions/checkout@v4
+
 
       # ------------------------------------------------------
       # Download Windows artifacts
@@ -134,6 +139,7 @@ jobs:
           name: windows-dist
           path: release-assets/windows
 
+
       # ------------------------------------------------------
       # Download Linux artifacts
       # ------------------------------------------------------
@@ -144,6 +150,7 @@ jobs:
           name: linux-dist
           path: release-assets/linux
 
+
       # ------------------------------------------------------
       # Download macOS artifacts
       # ------------------------------------------------------
@@ -153,6 +160,7 @@ jobs:
         with:
           name: macos-dist
           path: release-assets/macos
+
 
       # ------------------------------------------------------
       # Show generated files
@@ -167,8 +175,8 @@ jobs:
 
           find release-assets \
             -type f \
-            -maxdepth 3 \
             -print
+
 
       # ------------------------------------------------------
       # Create and publish GitHub Release
@@ -180,12 +188,28 @@ jobs:
           TAG_NAME: ${{ github.ref_name }}
         shell: bash
         run: |
+          echo "======================================"
           echo "Publishing GitHub Release: $TAG_NAME"
+          echo "======================================"
+
+          mapfile -d '' ASSETS < <(
+            find release-assets \
+              -type f \
+              -print0
+          )
+
+          echo "======================================"
+          echo "Release assets:"
+          echo "======================================"
+
+          printf '%s\n' "${ASSETS[@]}"
+
+          echo "======================================"
+          echo "Creating GitHub Release..."
+          echo "======================================"
 
           gh release create "$TAG_NAME" \
-            release-assets/windows/* \
-            release-assets/linux/* \
-            release-assets/macos/* \
+            "${ASSETS[@]}" \
             --repo "${{ github.repository }}" \
             --title "Amit ${TAG_NAME#v}" \
             --generate-notes \
