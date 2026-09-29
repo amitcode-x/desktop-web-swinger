@@ -18,7 +18,14 @@
     canvas.style.width = width + 'px';
     canvas.style.height = height + 'px';
 
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.setTransform(
+      dpr,
+      0,
+      0,
+      dpr,
+      0,
+      0
+    );
 
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
@@ -29,6 +36,7 @@
   // ------------------------------------------------------------------
   // Load character art
   // ------------------------------------------------------------------
+
   const heroImg = new Image();
 
   let heroReady = false;
@@ -37,30 +45,47 @@
     heroReady = true;
   };
 
-  heroImg.src = CONFIG.character.imageSrc;
+  heroImg.src =
+    CONFIG.character.imageSrc;
 
   // ------------------------------------------------------------------
   // Rope setup
   // ------------------------------------------------------------------
-  let anchorX = width * CONFIG.anchor.xFrac;
-  let anchorY = height * CONFIG.anchor.yFrac;
 
-  let rope = new Rope({
-    anchorX,
-    anchorY,
-    segments: CONFIG.rope.segments,
-    segmentLength: CONFIG.rope.segmentLength,
-    gravity: CONFIG.rope.gravity,
-    damping: CONFIG.rope.damping,
-    stiffness: CONFIG.rope.stiffness,
+  let anchorX =
+    width *
+    CONFIG.anchor.xFrac;
 
-    // Natural full-rope wind.
-    wind: CONFIG.rope.wind
-  });
+  let anchorY =
+    height *
+    CONFIG.anchor.yFrac;
+
+  let rope =
+    new Rope({
+      anchorX,
+      anchorY,
+      segments:
+        CONFIG.rope.segments,
+      segmentLength:
+        CONFIG.rope.segmentLength,
+      gravity:
+        CONFIG.rope.gravity,
+      damping:
+        CONFIG.rope.damping,
+      stiffness:
+        CONFIG.rope.stiffness,
+
+      // Natural full-rope wind.
+      wind:
+        CONFIG.rope.wind
+    });
 
   // Give it a very small initial push so it isn't perfectly still
   // when the application starts.
-  rope.applyImpulseToEnd(6, -2);
+  rope.applyImpulseToEnd(
+    6,
+    -2
+  );
 
   let paused = false;
   let dragging = false;
@@ -81,10 +106,13 @@
     // un-rotated space and checks it against the exact rectangle
     // drawImage() uses.
 
-    const end = rope.end();
+    const end =
+      rope.end();
 
     const prev =
-      rope.points[rope.points.length - 2] || end;
+      rope.points[
+        rope.points.length - 2
+      ] || end;
 
     const angle =
       (
@@ -95,11 +123,17 @@
         Math.PI / 2
       ) * 0.55;
 
-    const dx = x - end.x;
-    const dy = y - end.y;
+    const dx =
+      x - end.x;
 
-    const cos = Math.cos(-angle);
-    const sin = Math.sin(-angle);
+    const dy =
+      y - end.y;
+
+    const cos =
+      Math.cos(-angle);
+
+    const sin =
+      Math.sin(-angle);
 
     let localX =
       dx * cos -
@@ -109,35 +143,56 @@
       dx * sin +
       dy * cos;
 
-    localY -= (
-      CONFIG.character.attachOffsetY ?? 0
-    );
+    localY -=
+      (
+        CONFIG.character
+          .attachOffsetY ?? 0
+      );
 
-    const w = CONFIG.character.width;
-    const h = CONFIG.character.height;
-    const pad = CONFIG.interaction.grabPadding;
+    const w =
+      CONFIG.character.width;
+
+    const h =
+      CONFIG.character.height;
+
+    const pad =
+      CONFIG.interaction
+        .grabPadding;
 
     return (
-      localX >= -w / 2 - pad &&
-      localX <= w / 2 + pad &&
-      localY >= -pad &&
-      localY <= h + pad
+      localX >=
+        -w / 2 - pad &&
+      localX <=
+        w / 2 + pad &&
+      localY >=
+        -pad &&
+      localY <=
+        h + pad
     );
   }
 
   function isOverGrabZone(x, y) {
     // Character.
-    if (isOverEnd(x, y)) {
+    if (
+      isOverEnd(
+        x,
+        y
+      )
+    ) {
       return true;
     }
 
     // Thread itself.
-    for (const p of rope.points) {
+    for (
+      const p of rope.points
+    ) {
       if (
         Math.hypot(
           x - p.x,
           y - p.y
-        ) <= CONFIG.interaction.threadGrabRadius
+        ) <=
+        CONFIG.interaction
+          .threadGrabRadius
       ) {
         return true;
       }
@@ -154,7 +209,12 @@
   // ------------------------------------------------------------------
 
   function idleNudge() {
-    if (paused || dragging) return;
+    if (
+      paused ||
+      dragging
+    ) {
+      return;
+    }
 
     const f =
       CONFIG.idle.forceMin +
@@ -175,7 +235,9 @@
     );
   }
 
-  if (CONFIG.idle.enabled) {
+  if (
+    CONFIG.idle.enabled
+  ) {
     setInterval(
       idleNudge,
       CONFIG.idle.intervalMs
@@ -183,44 +245,88 @@
   }
 
   // ------------------------------------------------------------------
-  // Mouse tracking
+  // Mouse / cursor tracking
+  // ------------------------------------------------------------------
+  //
+  // The window is normally click-through.
+  //
+  // On Linux, Electron does not forward ignored mouse events
+  // to Chromium, so the main process polls the global cursor
+  // and sends it here.
+  //
+  // When the cursor enters the rope/character, the renderer
+  // temporarily makes the window interactive.
+  //
+  // Normal mouse events then work for dragging the character.
   // ------------------------------------------------------------------
 
   let overGrabZone = false;
 
+  function updatePointerPosition(
+    x,
+    y
+  ) {
+    mouse.x = x;
+    mouse.y = y;
+
+    if (dragging) {
+      return;
+    }
+
+    const now =
+      isOverGrabZone(
+        mouse.x,
+        mouse.y
+      );
+
+    if (
+      now !==
+      overGrabZone
+    ) {
+      overGrabZone = now;
+
+      window.desktopPet?.setIgnoreMouse(
+        !overGrabZone
+      );
+
+      document.body.style.cursor =
+        overGrabZone
+          ? 'grab'
+          : 'default';
+    }
+  }
+
+  // --------------------------------------------------------------
+  // Normal browser mouse events while interactive
+  // --------------------------------------------------------------
+
   window.addEventListener(
     'mousemove',
     (e) => {
-      mouse.x = e.clientX;
-      mouse.y = e.clientY;
-
-      if (dragging) return;
-
-      const now =
-        isOverGrabZone(
-          mouse.x,
-          mouse.y
-        );
-
-      if (now !== overGrabZone) {
-        overGrabZone = now;
-
-        window.desktopPet?.setIgnoreMouse(
-          !overGrabZone
-        );
-
-        document.body.style.cursor =
-          overGrabZone
-            ? 'grab'
-            : 'default';
-      }
+      updatePointerPosition(
+        e.clientX,
+        e.clientY
+      );
     }
   );
 
+  // --------------------------------------------------------------
+  // Start dragging
+  // --------------------------------------------------------------
+
   window.addEventListener(
     'mousedown',
-    () => {
-      if (!overGrabZone) return;
+    (e) => {
+      updatePointerPosition(
+        e.clientX,
+        e.clientY
+      );
+
+      if (
+        !overGrabZone
+      ) {
+        return;
+      }
 
       dragging = true;
 
@@ -229,10 +335,16 @@
     }
   );
 
+  // --------------------------------------------------------------
+  // Stop dragging
+  // --------------------------------------------------------------
+
   window.addEventListener(
     'mouseup',
     () => {
-      if (!dragging) return;
+      if (!dragging) {
+        return;
+      }
 
       dragging = false;
 
@@ -243,6 +355,41 @@
 
       // Release back to normal physics.
       rope.releaseEnd();
+    }
+  );
+
+  // --------------------------------------------------------------
+  // Mouse leaves window
+  // --------------------------------------------------------------
+
+  window.addEventListener(
+    'mouseleave',
+    () => {
+      if (dragging) {
+        return;
+      }
+
+      overGrabZone = false;
+
+      document.body.style.cursor =
+        'default';
+
+      window.desktopPet?.setIgnoreMouse(
+        true
+      );
+    }
+  );
+
+  // --------------------------------------------------------------
+  // Global cursor updates from Electron main process
+  // --------------------------------------------------------------
+
+  window.desktopPet?.onGlobalCursor(
+    ({ x, y }) => {
+      updatePointerPosition(
+        x,
+        y
+      );
     }
   );
 
@@ -277,18 +424,25 @@
 
   window.desktopPet?.onResetPosition(
     () => {
-      rope = new Rope({
-        anchorX,
-        anchorY,
-        segments: CONFIG.rope.segments,
-        segmentLength: CONFIG.rope.segmentLength,
-        gravity: CONFIG.rope.gravity,
-        damping: CONFIG.rope.damping,
-        stiffness: CONFIG.rope.stiffness,
+      rope =
+        new Rope({
+          anchorX,
+          anchorY,
+          segments:
+            CONFIG.rope.segments,
+          segmentLength:
+            CONFIG.rope.segmentLength,
+          gravity:
+            CONFIG.rope.gravity,
+          damping:
+            CONFIG.rope.damping,
+          stiffness:
+            CONFIG.rope.stiffness,
 
-        // Preserve natural wind after reset.
-        wind: CONFIG.rope.wind
-      });
+          // Preserve natural wind after reset.
+          wind:
+            CONFIG.rope.wind
+        });
     }
   );
 
@@ -297,16 +451,28 @@
   // ------------------------------------------------------------------
 
   function drawRope() {
-    const pts = rope.points;
-    const n = pts.length - 1;
-    const rc = CONFIG.rope;
+    const pts =
+      rope.points;
 
-    // Draw segment-by-segment so thickness can taper from anchor
-    // to character.
+    const n =
+      pts.length - 1;
 
-    for (let i = 0; i < n; i++) {
-      const a = pts[i];
-      const b = pts[i + 1];
+    const rc =
+      CONFIG.rope;
+
+    // Draw segment-by-segment so thickness can taper
+    // from anchor to character.
+
+    for (
+      let i = 0;
+      i < n;
+      i++
+    ) {
+      const a =
+        pts[i];
+
+      const b =
+        pts[i + 1];
 
       const t =
         i /
@@ -431,15 +597,22 @@
   // Glow
   // ------------------------------------------------------------------
 
-  function drawGlow(end, h) {
+  function drawGlow(
+    end,
+    h
+  ) {
     const g =
       CONFIG.character.glow;
 
-    if (!g || !g.enabled) {
+    if (
+      !g ||
+      !g.enabled
+    ) {
       return;
     }
 
-    const cx = end.x;
+    const cx =
+      end.x;
 
     const cy =
       end.y +
@@ -497,7 +670,8 @@
   // ------------------------------------------------------------------
 
   function drawCharacter() {
-    const end = rope.end();
+    const end =
+      rope.end();
 
     const prev =
       rope.points[
@@ -539,10 +713,13 @@
     // Character attachment offset.
     ctx.translate(
       0,
-      CONFIG.character.attachOffsetY ?? 0
+      CONFIG.character
+        .attachOffsetY ?? 0
     );
 
-    if (heroReady) {
+    if (
+      heroReady
+    ) {
       ctx.drawImage(
         heroImg,
 
@@ -608,17 +785,24 @@
       anchorY
     );
 
-    if (dragging) {
+    if (
+      dragging
+    ) {
       // Smoothly follow cursor.
       rope.dragEndTo(
         mouse.x,
         mouse.y,
-        CONFIG.interaction.dragSmoothing
+        CONFIG.interaction
+          .dragSmoothing
       );
 
-      // Let the rest of the rope settle around the held point.
+      // Let the rest of the rope settle around
+      // the held point.
       rope.applyConstraints();
-    } else if (!paused) {
+
+    } else if (
+      !paused
+    ) {
       // Normal rope physics + natural wind.
       rope.update();
     }
@@ -638,4 +822,4 @@
   requestAnimationFrame(
     frame
   );
-})();  
+})();

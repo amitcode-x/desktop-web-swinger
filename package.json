@@ -1,8 +1,9 @@
 {
   "name": "hanging-character",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A transparent always-on-top desktop application.",
   "main": "main.js",
+  "desktopName": "com.amit.hangingcharacter",
   "author": {
     "name": "Amit",
     "email": "amitchauhan6599@gmail.com"
@@ -63,7 +64,18 @@
         "deb"
       ],
       "category": "Utility",
-      "icon": "assets/icon.png"
+      "icon": "build/icons",
+      "desktop": {
+        "entry": {
+          "Name": "Amit",
+          "Comment": "A transparent always-on-top desktop companion.",
+          "Categories": "Utility;",
+          "Keywords": "Amit;desktop;companion;pet;",
+          "StartupWMClass": "com.amit.hangingcharacter",
+          "Terminal": "false",
+          "Type": "Application"
+        }
+      }
     },
     "mac": {
       "target": [
